@@ -44,9 +44,9 @@ class HtmlCleanerConfig(BaseModel):
     keep_data_attributes: set[str] = Field(
         default_factory=lambda: {"data-testid", "data-test", "data-e2e"}
     )
-    keep_semantic_class_names: bool = True
+    class_mode: str = "semantic"
     remove_empty_nodes: bool = True
-    preserve_img_src: bool = True
+    image_mode: str = "strip-base64"
     max_attribute_value_length: int = 512
 
 

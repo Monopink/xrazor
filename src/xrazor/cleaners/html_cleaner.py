@@ -113,12 +113,19 @@ class HtmlCleaner(Cleaner):
                 if lowered not in self.config.keep_attributes:
                     continue
                 if lowered == "src":
-                    value = self._clean_src_value(value)
+                    value = self._clean_src_value(element, value)
+                    if value is None:
+                        continue
                 element.attrib[name] = self._truncate_attribute_value(value)
 
+        if self.config.image_mode == "remove":
+            self._remove_image_nodes(document)
+
     def _filter_class_value(self, value: str) -> str:
-        if not self.config.keep_semantic_class_names:
+        if self.config.class_mode == "none":
             return ""
+        if self.config.class_mode == "all":
+            return value
 
         kept = [token for token in value.split() if self._is_semantic_class_token(token)]
         return " ".join(kept)
@@ -141,11 +148,18 @@ class HtmlCleaner(Cleaner):
         ]
         return bool(semantic_segments)
 
-    def _clean_src_value(self, value: str) -> str:
+    def _clean_src_value(self, element: html.HtmlElement, value: str) -> str | None:
+        if element.tag == "img":
+            if self.config.image_mode == "remove":
+                return None
+            if self.config.image_mode == "strip-base64" and value.startswith("data:"):
+                return NOTES.filtered_base64
+            if self.config.image_mode == "placeholder":
+                return NOTES.removed_non_essential
+            return value
+
         if value.startswith("data:"):
             return NOTES.filtered_base64
-        if not self.config.preserve_img_src:
-            return NOTES.removed_non_essential
         return value
 
     def _truncate_attribute_value(self, value: str) -> str:
@@ -163,6 +177,12 @@ class HtmlCleaner(Cleaner):
     def _normalize_text(self, value: str) -> str:
         normalized = WHITESPACE_RE.sub(" ", value).strip()
         return normalized
+
+    def _remove_image_nodes(self, document: html.HtmlElement) -> None:
+        for element in document.xpath("//img"):
+            parent = element.getparent()
+            if parent is not None:
+                parent.remove(element)
 
     def _remove_empty_nodes(self, document: html.HtmlElement) -> None:
         changed = True

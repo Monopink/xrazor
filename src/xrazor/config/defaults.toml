@@ -1,7 +1,7 @@
 [html]
-keep_semantic_class_names = true
+class_mode = "semantic"
 remove_empty_nodes = true
-preserve_img_src = true
+image_mode = "strip-base64"
 max_attribute_value_length = 512
 
 [har]
