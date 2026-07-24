@@ -1,0 +1,13 @@
+[html]
+keep_semantic_class_names = true
+remove_empty_nodes = true
+preserve_img_src = true
+max_attribute_value_length = 512
+
+[har]
+remove_cookie_headers = true
+remove_response_cookies = true
+trim_json_arrays_to = 10
+trim_json_object_keys_to = 50
+trim_long_strings_to = 500
+max_json_depth = 8

@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xrazor"
+version = "0.1.0"
+description = "Clean HTML and HAR files into AI-readable web context"
+readme = "AGENTS.md"
+requires-python = ">=3.12"
+dependencies = [
+  "lxml>=5.2.0",
+  "pydantic>=2.8.0",
+  "typer>=0.12.3",
+]
+
+[project.scripts]
+xrazor = "xrazor.cli:app"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.11.0",
+  "pre-commit>=3.8.0",
+  "pytest>=8.3.0",
+  "ruff>=0.5.6",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+  "integration: integration tests using repository sample artifacts",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+pretty = true
+show_error_codes = true
+mypy_path = "src"
+packages = ["xrazor"]
