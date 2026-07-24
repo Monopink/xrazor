@@ -1,0 +1,4 @@
+interface:
+  display_name: "XRazor"
+  short_description: "Clean HTML and HAR for AI reading"
+  default_prompt: "Use $xrazor to clean HTML or HAR files and produce AI-readable context."
