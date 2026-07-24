@@ -69,3 +69,27 @@ def test_context_command_includes_headings_and_stats(tmp_path: Path) -> None:
     assert "- Ms.Vi" in result.stdout
     assert "Visible stats:" in result.stdout
     assert "- followers: 62K" in result.stdout
+
+
+def test_clean_command_accepts_html_override_modes(tmp_path: Path) -> None:
+    input_file = tmp_path / "page.html"
+    input_file.write_text(
+        '<html><body><img src="https://example.com/a.png"><div class="hero-banner css-abc123">x</div></body></html>',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "clean",
+            str(input_file),
+            "--image-mode",
+            "remove",
+            "--class-mode",
+            "none",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "<img" not in result.stdout
+    assert 'class="' not in result.stdout

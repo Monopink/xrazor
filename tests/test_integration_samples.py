@@ -39,3 +39,17 @@ def test_sample_har_cleaning_keeps_document_or_api_entries() -> None:
     assert cleaned["_xrazor_note"]
     assert "creator" not in cleaned["log"]
     assert "version" not in cleaned["log"]
+
+
+@pytest.mark.integration
+def test_firefox_single_api_har_is_supported() -> None:
+    sample_path = REPO_ROOT / "api_post_item_list.har"
+    raw = sample_path.read_text(encoding="utf-8")
+
+    result = HarCleaner().clean(raw)
+    cleaned = json.loads(result.content)
+    entries = cleaned["log"]["entries"]
+
+    assert len(entries) == 1
+    assert entries[0]["_resourceType"] == "xhr"
+    assert "/api/post/item_list/" in entries[0]["request"]["url"]

@@ -135,7 +135,7 @@ class HarAiContextExporter:
         return ExportResult(content="\n".join(lines).strip(), media_type="text/markdown")
 
     def _resource_summary(self, entries: list[dict[str, Any]]) -> list[str]:
-        counter = Counter(str(entry.get("_resourceType", "unknown")) for entry in entries)
+        counter = Counter(str(entry.get("_resourceType", "unknown")) or "unknown" for entry in entries)
         lines = ["Network summary:"]
         for resource_type, count in counter.most_common():
             lines.append(f"- {resource_type}: {count}")

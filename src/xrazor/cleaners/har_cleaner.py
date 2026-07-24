@@ -52,7 +52,7 @@ class HarCleaner(Cleaner):
         )
 
     def _should_keep_entry(self, entry: dict[str, Any]) -> bool:
-        resource_type = str(entry.get("_resourceType", "")).lower()
+        resource_type = self._resource_type_for_entry(entry)
         if resource_type in self.config.keep_resource_types:
             return True
         if resource_type in self.config.drop_resource_types:
@@ -67,7 +67,7 @@ class HarCleaner(Cleaner):
         request = entry.get("request", {})
         response = entry.get("response", {})
         cleaned_entry: dict[str, Any] = {
-            "_resourceType": entry.get("_resourceType", ""),
+            "_resourceType": self._resource_type_for_entry(entry),
             "request": {
                 "method": request.get("method", "GET"),
                 "url": request.get("url", ""),
@@ -243,6 +243,32 @@ class HarCleaner(Cleaner):
             if str(header.get("name", "")).lower() == "content-type":
                 return str(header.get("value", "")).lower()
         return ""
+
+    def _resource_type_for_entry(self, entry: dict[str, Any]) -> str:
+        explicit = str(entry.get("_resourceType", "")).lower().strip()
+        if explicit:
+            return explicit
+
+        mime_type = self._extract_mime_type(entry)
+        request = entry.get("request", {})
+        response = entry.get("response", {})
+        method = str(request.get("method", "GET")).upper()
+        url = str(request.get("url", "")).lower()
+        status = int(response.get("status", 0) or 0)
+
+        if mime_type.startswith("text/html"):
+            return "document"
+        if mime_type.startswith("application/json") or "/api/" in url:
+            return "xhr"
+        if mime_type.startswith(("image/", "font/", "video/", "audio/")):
+            return "binary"
+        if mime_type.startswith("text/css"):
+            return "stylesheet"
+        if "javascript" in mime_type:
+            return "script"
+        if method in {"POST", "PUT", "PATCH", "DELETE"} and status >= 0:
+            return "fetch"
+        return "other"
 
     def _looks_like_base64(self, value: str) -> bool:
         if len(value) < 256:

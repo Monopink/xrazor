@@ -36,3 +36,28 @@ def test_har_cleaner_drops_script_entries_and_keeps_xhr() -> None:
     assert len(entries) == 1
     assert entries[0]["request"]["url"] == "https://example.com/api"
     assert entries[0]["response"]["content"]["json"] == {"ok": True}
+
+
+def test_har_cleaner_infers_resource_type_when_missing() -> None:
+    cleaner = HarCleaner()
+    raw = json.dumps(
+        {
+            "log": {
+                "entries": [
+                    {
+                        "request": {"method": "GET", "url": "https://example.com/api/items", "headers": []},
+                        "response": {
+                            "status": 200,
+                            "headers": [{"name": "content-type", "value": "application/json; charset=utf-8"}],
+                            "content": {"mimeType": "application/json; charset=utf-8", "text": "{\"items\":[]}"},
+                        },
+                    }
+                ]
+            }
+        }
+    )
+
+    result = cleaner.clean(raw)
+    cleaned = json.loads(result.content)
+    entry = cleaned["log"]["entries"][0]
+    assert entry["_resourceType"] == "xhr"

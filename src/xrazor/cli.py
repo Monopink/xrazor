@@ -27,6 +27,19 @@ def _write_output(content: str, output: Path | None) -> None:
     output.write_text(content, encoding="utf-8")
 
 
+def _apply_html_overrides(
+    app_config: AppConfig,
+    *,
+    image_mode: str | None,
+    class_mode: str | None,
+) -> AppConfig:
+    if image_mode is not None:
+        app_config.html.image_mode = image_mode
+    if class_mode is not None:
+        app_config.html.class_mode = class_mode
+    return app_config
+
+
 def _detect_input_kind(input_path: Path, kind: str | None = None) -> str:
     if kind is not None:
         return kind
@@ -52,8 +65,14 @@ def clean_html(
     input_path: Path,
     output: Path | None = typer.Option(None, "--out", "-o"),
     config: Path | None = typer.Option(None, "--config"),
+    image_mode: str | None = typer.Option(None, "--image-mode"),
+    class_mode: str | None = typer.Option(None, "--class-mode"),
 ) -> None:
-    app_config = _load_config(config)
+    app_config = _apply_html_overrides(
+        _load_config(config),
+        image_mode=image_mode,
+        class_mode=class_mode,
+    )
     cleaner = HtmlCleaner(app_config.html)
     raw = input_path.read_text(encoding="utf-8")
     result = cleaner.clean(raw)
@@ -79,8 +98,14 @@ def clean(
     output: Path | None = typer.Option(None, "--out", "-o"),
     config: Path | None = typer.Option(None, "--config"),
     kind: str | None = typer.Option(None, "--kind"),
+    image_mode: str | None = typer.Option(None, "--image-mode"),
+    class_mode: str | None = typer.Option(None, "--class-mode"),
 ) -> None:
-    app_config = _load_config(config)
+    app_config = _apply_html_overrides(
+        _load_config(config),
+        image_mode=image_mode,
+        class_mode=class_mode,
+    )
     detected_kind = _detect_input_kind(input_path, kind)
     cleaned = _clean_by_kind(input_path, kind=detected_kind, app_config=app_config)
     _write_output(cleaned, output)
@@ -92,8 +117,14 @@ def export_html(
     format_name: str = typer.Option("json", "--format"),
     config: Path | None = typer.Option(None, "--config"),
     output: Path | None = typer.Option(None, "--out", "-o"),
+    image_mode: str | None = typer.Option(None, "--image-mode"),
+    class_mode: str | None = typer.Option(None, "--class-mode"),
 ) -> None:
-    app_config = _load_config(config)
+    app_config = _apply_html_overrides(
+        _load_config(config),
+        image_mode=image_mode,
+        class_mode=class_mode,
+    )
     cleaned = HtmlCleaner(app_config.html).clean(input_path.read_text(encoding="utf-8")).content
 
     if format_name == "markdown":
@@ -127,8 +158,14 @@ def export(
     config: Path | None = typer.Option(None, "--config"),
     output: Path | None = typer.Option(None, "--out", "-o"),
     kind: str | None = typer.Option(None, "--kind"),
+    image_mode: str | None = typer.Option(None, "--image-mode"),
+    class_mode: str | None = typer.Option(None, "--class-mode"),
 ) -> None:
-    app_config = _load_config(config)
+    app_config = _apply_html_overrides(
+        _load_config(config),
+        image_mode=image_mode,
+        class_mode=class_mode,
+    )
     detected_kind = _detect_input_kind(input_path, kind)
     cleaned = _clean_by_kind(input_path, kind=detected_kind, app_config=app_config)
 
@@ -145,8 +182,14 @@ def context(
     config: Path | None = typer.Option(None, "--config"),
     output: Path | None = typer.Option(None, "--out", "-o"),
     kind: str | None = typer.Option(None, "--kind"),
+    image_mode: str | None = typer.Option(None, "--image-mode"),
+    class_mode: str | None = typer.Option(None, "--class-mode"),
 ) -> None:
-    app_config = _load_config(config)
+    app_config = _apply_html_overrides(
+        _load_config(config),
+        image_mode=image_mode,
+        class_mode=class_mode,
+    )
     detected_kind = _detect_input_kind(input_path, kind)
     cleaned = _clean_by_kind(input_path, kind=detected_kind, app_config=app_config)
 
