@@ -35,4 +35,4 @@ def test_har_cleaner_drops_script_entries_and_keeps_xhr() -> None:
     entries = cleaned["log"]["entries"]
     assert len(entries) == 1
     assert entries[0]["request"]["url"] == "https://example.com/api"
-
+    assert entries[0]["response"]["content"]["json"] == {"ok": True}

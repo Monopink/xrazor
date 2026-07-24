@@ -13,6 +13,37 @@ from xrazor.models.result import CleanResult
 WHITESPACE_RE = re.compile(r"\s+")
 HASH_CLASS_RE = re.compile(r"^(?:[a-f0-9]{6,}|[A-Za-z0-9_-]{12,})$")
 EVENT_ATTR_RE = re.compile(r"^on[a-z]+$")
+GENERATED_CLASS_PATTERNS = (
+    re.compile(r"^css-"),
+    re.compile(r"^e[a-z0-9]{6,}$"),
+    re.compile(r"^[a-z]{2,}\d[a-z0-9]{3,}$"),
+    re.compile(r".*_v\d+(?:_\d+)*$"),
+)
+SEMANTIC_CLASS_SEGMENT_RE = re.compile(r"^[A-Za-z][A-Za-z-]{2,}$")
+CLASS_STOPWORDS = {
+    "active",
+    "base",
+    "box",
+    "canary",
+    "card",
+    "center",
+    "component",
+    "container",
+    "content",
+    "default",
+    "element",
+    "item",
+    "label",
+    "left",
+    "medium",
+    "primary",
+    "right",
+    "small",
+    "text",
+    "tiny",
+    "top",
+    "wrapper",
+}
 
 
 class HtmlCleaner(Cleaner):
@@ -71,11 +102,15 @@ class HtmlCleaner(Cleaner):
                     continue
                 if lowered.startswith("aria-") and lowered not in self.config.keep_aria_attributes:
                     continue
+                if lowered in self.config.keep_aria_attributes:
+                    element.attrib[name] = self._truncate_attribute_value(value)
+                    continue
                 if lowered.startswith("data-") and lowered not in self.config.keep_data_attributes:
                     continue
-                if lowered not in self.config.keep_attributes and not lowered.startswith(
-                    tuple(self.config.keep_data_attributes)
-                ):
+                if lowered in self.config.keep_data_attributes:
+                    element.attrib[name] = self._truncate_attribute_value(value)
+                    continue
+                if lowered not in self.config.keep_attributes:
                     continue
                 if lowered == "src":
                     value = self._clean_src_value(value)
@@ -85,12 +120,26 @@ class HtmlCleaner(Cleaner):
         if not self.config.keep_semantic_class_names:
             return ""
 
-        kept = [
-            token
-            for token in value.split()
-            if not HASH_CLASS_RE.match(token) or "-" in token or "_" in token
-        ]
+        kept = [token for token in value.split() if self._is_semantic_class_token(token)]
         return " ".join(kept)
+
+    def _is_semantic_class_token(self, token: str) -> bool:
+        lowered = token.lower()
+        if any(pattern.match(token) for pattern in GENERATED_CLASS_PATTERNS):
+            return False
+        if HASH_CLASS_RE.match(token) and "-" not in token and "_" not in token:
+            return False
+        if lowered.startswith("tux-"):
+            return False
+
+        segments = [segment for segment in re.split(r"[-_]", token) if segment]
+        semantic_segments = [
+            segment
+            for segment in segments
+            if SEMANTIC_CLASS_SEGMENT_RE.match(segment)
+            and segment.lower() not in CLASS_STOPWORDS
+        ]
+        return bool(semantic_segments)
 
     def _clean_src_value(self, value: str) -> str:
         if value.startswith("data:"):

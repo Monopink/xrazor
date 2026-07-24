@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from urllib.parse import urlparse
 from typing import Any
 
 from lxml import html
 
 from xrazor.models.result import ExportResult
 
+GENERIC_LABELS = {"a", "button", "div", "i", "img", "input", "span"}
+NOISE_HOST_KEYWORDS = ("monitor", "mcs-", "mssdk", "mon.", "mon-", "webcast")
+
 
 class HtmlAiContextExporter:
     def export(self, cleaned_content: str) -> ExportResult:
-        document = html.fromstring(cleaned_content)
+        document = html.document_fromstring(cleaned_content)
         title = self._first_text(document.xpath("//title/text()"))
         buttons = self._collect_elements(document, "//button | //*[@role='button']")
         links = self._collect_elements(document, "//a[@href]")
@@ -39,7 +43,17 @@ class HtmlAiContextExporter:
             if not isinstance(element.tag, str):
                 continue
             text = " ".join(part.strip() for part in element.itertext() if part.strip())
-            label = text or element.attrib.get("aria-label") or element.attrib.get("title") or element.tag
+            label = (
+                text
+                or element.attrib.get("aria-label")
+                or element.attrib.get("title")
+                or element.attrib.get("data-e2e")
+                or element.attrib.get("data-testid")
+                or element.tag
+            )
+            label = label.strip()
+            if not label or label.lower() in GENERIC_LABELS:
+                continue
             results.append(label)
         return self._dedupe_preserve_order(results)
 
@@ -97,12 +111,43 @@ class HarAiContextExporter:
 
     def _api_lines(self, entries: list[dict[str, Any]]) -> list[str]:
         lines: list[str] = []
-        for entry in entries[:50]:
+        seen: set[tuple[str, str]] = set()
+        for entry in entries:
             request = entry.get("request", {})
             response = entry.get("response", {})
             url = str(request.get("url", ""))
             method = str(request.get("method", "GET"))
             status = response.get("status", "")
             mime_type = str(response.get("content", {}).get("mimeType", ""))
-            lines.append(f"- `{method}` {url} -> {status} ({mime_type})")
+            if not self._is_useful_api(url=url, mime_type=mime_type):
+                continue
+            normalized = self._normalize_url(url)
+            key = (method, normalized)
+            if key in seen:
+                continue
+            seen.add(key)
+            lines.append(f"- `{method}` {normalized} -> {status} ({mime_type})")
+            if len(lines) >= 25:
+                break
+        if not lines:
+            lines.append("- No high-signal API calls identified")
         return lines
+
+    def _is_useful_api(self, *, url: str, mime_type: str) -> bool:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        path = parsed.path.lower()
+
+        if mime_type.startswith("application/json"):
+            return not any(keyword in host for keyword in NOISE_HOST_KEYWORDS) or "/api/" in path
+        return mime_type == "text/html"
+
+    def _normalize_url(self, url: str) -> str:
+        parsed = urlparse(url)
+        path = parsed.path or "/"
+        if parsed.query:
+            keys = sorted({item.split("=", 1)[0] for item in parsed.query.split("&") if item})
+            preview = ", ".join(keys[:6])
+            suffix = ", ..." if len(keys) > 6 else ""
+            return f"{parsed.scheme}://{parsed.netloc}{path} ? {preview}{suffix}"
+        return f"{parsed.scheme}://{parsed.netloc}{path}"

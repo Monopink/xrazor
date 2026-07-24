@@ -37,3 +37,5 @@ def test_sample_har_cleaning_keeps_document_or_api_entries() -> None:
     assert entries
     assert all(entry.get("_resourceType") in {"document", "xhr", "fetch", "other", "ping"} for entry in entries)
     assert cleaned["_xrazor_note"]
+    assert "creator" not in cleaned["log"]
+    assert "version" not in cleaned["log"]

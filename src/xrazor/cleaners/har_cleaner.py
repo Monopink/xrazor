@@ -30,7 +30,8 @@ class HarCleaner(Cleaner):
 
     def clean(self, raw: str) -> CleanResult:
         data = json.loads(raw)
-        entries = data.get("log", {}).get("entries", [])
+        log = data.get("log", {})
+        entries = log.get("entries", [])
         cleaned_entries = []
         warnings: list[str] = []
 
@@ -39,10 +40,16 @@ class HarCleaner(Cleaner):
                 continue
             cleaned_entries.append(self._clean_entry(entry))
 
-        if "log" in data:
-            data["log"]["entries"] = cleaned_entries
-        data["_xrazor_note"] = NOTES.file_note
-        return CleanResult(content=json.dumps(data, ensure_ascii=False, indent=2), warnings=warnings)
+        cleaned_payload = {
+            "_xrazor_note": NOTES.file_note,
+            "log": {
+                "pages": self._clean_pages(log.get("pages", [])),
+                "entries": cleaned_entries,
+            },
+        }
+        return CleanResult(
+            content=json.dumps(cleaned_payload, ensure_ascii=False, indent=2), warnings=warnings
+        )
 
     def _should_keep_entry(self, entry: dict[str, Any]) -> bool:
         resource_type = str(entry.get("_resourceType", "")).lower()
@@ -59,33 +66,55 @@ class HarCleaner(Cleaner):
     def _clean_entry(self, entry: dict[str, Any]) -> dict[str, Any]:
         request = entry.get("request", {})
         response = entry.get("response", {})
+        cleaned_entry: dict[str, Any] = {
+            "_resourceType": entry.get("_resourceType", ""),
+            "request": {
+                "method": request.get("method", "GET"),
+                "url": request.get("url", ""),
+            },
+            "response": {
+                "status": response.get("status", ""),
+            },
+        }
 
-        request["headers"] = self._clean_headers(request.get("headers", []), is_response=False)
-        response["headers"] = self._clean_headers(response.get("headers", []), is_response=True)
+        query = self._clean_query_string(request.get("queryString", []))
+        if query:
+            cleaned_entry["request"]["query"] = query
 
-        if self.config.remove_cookie_headers:
-            request.pop("cookies", None)
-        if self.config.remove_response_cookies:
-            response.pop("cookies", None)
+        headers = self._clean_headers(request.get("headers", []), is_response=False)
+        if headers:
+            cleaned_entry["request"]["headers"] = headers
 
-        entry.pop("cache", None)
-        entry.pop("timings", None)
-        entry.pop("serverIPAddress", None)
-        entry.pop("connection", None)
-        entry.pop("_securityDetails", None)
-        entry.pop("_webSocketMessages", None)
+        response_headers = self._clean_headers(response.get("headers", []), is_response=True)
+        if response_headers:
+            cleaned_entry["response"]["headers"] = response_headers
 
         if "postData" in request:
-            request["postData"] = self._clean_post_data(request["postData"])
+            cleaned_post_data = self._clean_post_data(request["postData"])
+            if cleaned_post_data:
+                cleaned_entry["request"]["postData"] = cleaned_post_data
+
         if "content" in response:
-            response["content"] = self._clean_content(response["content"])
+            cleaned_content = self._clean_content(response["content"])
+            if cleaned_content:
+                cleaned_entry["response"]["content"] = cleaned_content
 
-        entry["request"] = request
-        entry["response"] = response
-        return entry
+        return cleaned_entry
 
-    def _clean_headers(self, headers: list[dict[str, Any]], *, is_response: bool) -> list[dict[str, Any]]:
-        cleaned = []
+    def _clean_pages(self, pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        cleaned_pages: list[dict[str, Any]] = []
+        for page in pages:
+            cleaned_page: dict[str, Any] = {}
+            if page.get("id"):
+                cleaned_page["id"] = page["id"]
+            if page.get("title"):
+                cleaned_page["title"] = page["title"]
+            if cleaned_page:
+                cleaned_pages.append(cleaned_page)
+        return cleaned_pages
+
+    def _clean_headers(self, headers: list[dict[str, Any]], *, is_response: bool) -> dict[str, str]:
+        cleaned: dict[str, str] = {}
         for header in headers:
             name = str(header.get("name", "")).lower()
             if name.startswith("sec-ch-") or name.startswith("sec-fetch-"):
@@ -94,48 +123,77 @@ class HarCleaner(Cleaner):
                 continue
             if not is_response and name in REQUEST_HEADERS_TO_DROP:
                 continue
-            cleaned.append(header)
+            if name.startswith(":"):
+                continue
+            cleaned[name] = str(header.get("value", ""))
+        return cleaned
+
+    def _clean_query_string(self, query_string: list[dict[str, Any]]) -> dict[str, str]:
+        cleaned: dict[str, str] = {}
+        for item in query_string:
+            name = str(item.get("name", ""))
+            if not name:
+                continue
+            cleaned[name] = str(item.get("value", ""))
         return cleaned
 
     def _clean_post_data(self, post_data: dict[str, Any]) -> dict[str, Any]:
+        cleaned: dict[str, Any] = {}
+        mime_type = str(post_data.get("mimeType", ""))
+        if mime_type:
+            cleaned["mimeType"] = mime_type
+
+        params = post_data.get("params")
+        if isinstance(params, list) and params:
+            cleaned["params"] = [
+                {"name": str(param.get("name", "")), "value": str(param.get("value", ""))}
+                for param in params
+                if param.get("name")
+            ]
+
         text = post_data.get("text")
         if not isinstance(text, str):
-            return post_data
+            return cleaned
 
-        mime_type = str(post_data.get("mimeType", ""))
         if "json" in mime_type:
-            post_data["text"] = self._trim_json_text(text)
-            return post_data
+            cleaned_json = self._trim_json_value_or_text(text)
+            cleaned["json"] = cleaned_json
+            return cleaned
 
         if len(text) > self.config.trim_long_strings_to:
-            post_data["text"] = NOTES.trimmed_long_text
-        return post_data
+            cleaned["text"] = NOTES.trimmed_long_text
+        else:
+            cleaned["text"] = text
+        return cleaned
 
     def _clean_content(self, content: dict[str, Any]) -> dict[str, Any]:
         mime_type = str(content.get("mimeType", "")).lower()
+        cleaned: dict[str, Any] = {}
+        if mime_type:
+            cleaned["mimeType"] = mime_type
         text = content.get("text")
 
         if mime_type.startswith(("image/", "font/", "video/", "audio/")):
-            content["text"] = NOTES.removed_binary
-            content["encoding"] = "xrazor"
-            return content
+            cleaned["text"] = NOTES.removed_binary
+            return cleaned
 
         if isinstance(text, str):
             if "json" in mime_type:
-                content["text"] = self._trim_json_text(text)
+                cleaned["json"] = self._trim_json_value_or_text(text)
             elif self._looks_like_base64(text):
-                content["text"] = NOTES.filtered_base64
+                cleaned["text"] = NOTES.filtered_base64
             elif len(text) > self.config.trim_long_strings_to:
-                content["text"] = NOTES.trimmed_long_text
-        return content
+                cleaned["text"] = NOTES.trimmed_long_text
+            else:
+                cleaned["text"] = text
+        return cleaned
 
-    def _trim_json_text(self, raw_json: str) -> str:
+    def _trim_json_value_or_text(self, raw_json: str) -> Any:
         try:
             payload = json.loads(raw_json)
         except json.JSONDecodeError:
             return NOTES.truncated_json if len(raw_json) > self.config.trim_long_strings_to else raw_json
-        trimmed = self._trim_json_value(payload, depth=0)
-        return json.dumps(trimmed, ensure_ascii=False)
+        return self._trim_json_value(payload, depth=0)
 
     def _trim_json_value(self, value: Any, *, depth: int) -> Any:
         if depth >= self.config.max_json_depth:
