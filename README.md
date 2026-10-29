@@ -30,6 +30,21 @@ Common use cases:
 python -m pip install -e .
 ```
 
+The browser-friendly TypeScript core is available under `packages/core`:
+
+```powershell
+npm install
+```
+
+```ts
+import { cleanHtmlText, cleanHar } from "@xrazor/core";
+
+const htmlResult = cleanHtmlText(html);
+const harResult = cleanHar(JSON.parse(harText));
+```
+
+The Python and TypeScript implementations are maintained as separate runtimes. They share the same cleaning rules and are intended for different integration scenarios.
+
 ## Basic Usage
 
 Run commands with either `python -m xrazor` or `xrazor`.

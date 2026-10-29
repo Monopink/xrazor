@@ -1,0 +1,14 @@
+{
+  "name": "xrazor-workspace",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build:js": "tsc -p packages/core/tsconfig.json",
+    "test:js": "vitest run --config vitest.config.ts",
+    "typecheck:js": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
