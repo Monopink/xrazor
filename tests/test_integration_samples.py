@@ -13,7 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def sample_path(name: str) -> Path:
-    for candidate in (REPO_ROOT / name, REPO_ROOT / "ref" / name):
+    for candidate in (
+        REPO_ROOT / name,
+        REPO_ROOT / "ref" / name,
+        REPO_ROOT / "tests" / "fixtures" / name,
+    ):
         if candidate.exists():
             return candidate
     raise AssertionError(f"Missing integration sample: {name}")
