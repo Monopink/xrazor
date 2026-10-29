@@ -4,10 +4,17 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "build:js": "tsc -p packages/core/tsconfig.json",
+    "build:browser": "npm --prefix packages/core run build",
     "test:js": "vitest run --config vitest.config.ts",
+    "test:browser-bundle": "npm run build:browser && vitest run --config vitest.browser-bundle.config.ts",
+    "test:real-browser": "npm run build:browser && vitest run --config vitest.real-browser.config.ts",
     "typecheck:js": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "jsdom": "^25.0.1",
+    "playwright": "^1.49.1",
+    "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   }

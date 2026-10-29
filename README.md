@@ -45,6 +45,63 @@ const harResult = cleanHar(JSON.parse(harText));
 
 The Python and TypeScript implementations are maintained as separate runtimes. They share the same cleaning rules and are intended for different integration scenarios.
 
+### Browser build
+
+Build the browser distributions with:
+
+```powershell
+npm run build:browser
+```
+
+This produces:
+
+```text
+packages/core/dist/index.js         # ES module
+packages/core/dist/index.global.js  # IIFE browser bundle
+packages/core/dist/index.d.ts       # Type declarations
+```
+
+The IIFE bundle exposes the API as `window.XRazor`:
+
+```html
+<script src="./packages/core/dist/index.global.js"></script>
+<script>
+  const result = XRazor.cleanHar({ log: { entries: [] } });
+</script>
+```
+
+`cleanHar` and `cleanHarText` are pure JavaScript and work in browsers, Web Workers, and Node.js. `cleanHtmlText` requires a browser DOM environment providing `DOMParser`, `NodeFilter`, and `XMLSerializer`. For an existing page DOM, use `cleanHtmlDocument(document)`.
+
+### Validation and release
+
+Run the JavaScript checks locally with:
+
+```powershell
+npm ci
+npm run typecheck:js
+npm run test:js
+npm run build:browser
+npm run test:browser-bundle
+npx playwright install chromium
+npm run test:real-browser
+```
+
+The Python implementation remains independently testable:
+
+```powershell
+python -m pytest -q
+```
+
+Before publishing `@xrazor/core`, inspect the package contents with:
+
+```powershell
+Push-Location packages/core
+npm pack --dry-run
+Pop-Location
+```
+
+The current package version is `@xrazor/core@0.1.1`. Downstream applications should use this released version once published, or pin a specific commit while release packaging is being prepared. They should not follow `main` directly.
+
 ## Basic Usage
 
 Run commands with either `python -m xrazor` or `xrazor`.

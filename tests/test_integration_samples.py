@@ -12,10 +12,16 @@ from xrazor.cleaners.html_cleaner import HtmlCleaner
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def sample_path(name: str) -> Path:
+    for candidate in (REPO_ROOT / name, REPO_ROOT / "ref" / name):
+        if candidate.exists():
+            return candidate
+    raise AssertionError(f"Missing integration sample: {name}")
+
+
 @pytest.mark.integration
 def test_sample_html_cleaning_preserves_title_and_removes_script() -> None:
-    sample_path = REPO_ROOT / "tt_page.html"
-    raw = sample_path.read_text(encoding="utf-8")
+    raw = sample_path("tt_page.html").read_text(encoding="utf-8")
 
     result = HtmlCleaner().clean(raw)
 
@@ -27,8 +33,7 @@ def test_sample_html_cleaning_preserves_title_and_removes_script() -> None:
 
 @pytest.mark.integration
 def test_sample_har_cleaning_keeps_document_or_api_entries() -> None:
-    sample_path = REPO_ROOT / "item_list.har"
-    raw = sample_path.read_text(encoding="utf-8")
+    raw = sample_path("item_list.har").read_text(encoding="utf-8")
 
     result = HarCleaner().clean(raw)
     cleaned = json.loads(result.content)
@@ -43,8 +48,7 @@ def test_sample_har_cleaning_keeps_document_or_api_entries() -> None:
 
 @pytest.mark.integration
 def test_firefox_single_api_har_is_supported() -> None:
-    sample_path = REPO_ROOT / "api_post_item_list.har"
-    raw = sample_path.read_text(encoding="utf-8")
+    raw = sample_path("api_post_item_list.har").read_text(encoding="utf-8")
 
     result = HarCleaner().clean(raw)
     cleaned = json.loads(result.content)

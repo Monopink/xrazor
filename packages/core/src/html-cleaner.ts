@@ -15,17 +15,32 @@ const classStopwords = new Set([
 
 export function cleanHtmlText(raw: string, config?: Partial<HtmlCleanerConfig>): CleanResult<string> {
   if (typeof DOMParser === "undefined") {
-    throw new Error("cleanHtmlText requires a DOMParser; use a DOM adapter in non-browser runtimes");
+    throw new Error(
+      "cleanHtmlText requires a browser DOM environment with DOMParser, NodeFilter, and XMLSerializer",
+    );
   }
   const document = new DOMParser().parseFromString(raw, "text/html");
   const result = cleanHtmlDocument(document, config);
-  return { ...result, content: `<!-- XRazor: ${NOTES.file} -->\n${new XMLSerializer().serializeToString(document)}` };
+  if (typeof XMLSerializer === "undefined") {
+    throw new Error(
+      "cleanHtmlText requires a browser DOM environment with DOMParser, NodeFilter, and XMLSerializer",
+    );
+  }
+  return {
+    ...result,
+    content: `<!-- XRazor: ${NOTES.file} -->\n${new XMLSerializer().serializeToString(document)}`,
+  };
 }
 
 export function cleanHtmlDocument(
   document: Document,
   overrides?: Partial<HtmlCleanerConfig>,
 ): CleanResult<Document> {
+  if (typeof NodeFilter === "undefined") {
+    throw new Error(
+      "cleanHtmlDocument requires a browser DOM environment with DOMParser, NodeFilter, and XMLSerializer",
+    );
+  }
   const config = mergeConfig(defaultHtmlConfig(), overrides);
   document.querySelectorAll("*").forEach((element) => {
     if (config.removeTags.has(element.tagName.toLowerCase())) element.remove();
